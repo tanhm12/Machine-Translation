@@ -2,12 +2,13 @@ import torch
 from torch import nn
 from torch.nn.utils.rnn import pad_sequence, pad_packed_sequence, pack_padded_sequence
 from typing import List
+import numpy as np
 
 
 class Seq2SeqModel(nn.Module):
-    def __init__(self):
+    def __init__(self, vocab_size=10000, device='cuda'):
         super(Seq2SeqModel, self).__init__()
-        self.vocab_size = 10000
+        self.vocab_size = vocab_size
         self.embedding_dim = 100
         self.lstm_dim = 128
         self.output_dim = self.vocab_size
@@ -24,7 +25,9 @@ class Seq2SeqModel(nn.Module):
         self.loss_ignore_idx = -100
         self.loss = nn.CrossEntropyLoss(ignore_index=self.loss_ignore_idx)
 
-    def forward(self, x: List[torch.LongTensor], y:  List[torch.LongTensor] = None):
+        self.device = device
+
+    def forward(self, x: List[torch.LongTensor], y:  List[torch.LongTensor] = None, max_len=20):
 
         lens = [len(sent) for sent in x]
 
@@ -35,7 +38,7 @@ class Seq2SeqModel(nn.Module):
         if y is not None:
             # lens_y = [len(sent) for sent in y]
             decoder_inputs = pad_sequence(y, batch_first=True, padding_value=self.loss_ignore_idx)
-            bos = torch.LongTensor([[self.bos_idx] * decoder_inputs.shape[0]]).reshape((-1, 1)).to(decoder_inputs.device)
+            bos = torch.LongTensor([[self.bos_idx] * decoder_inputs.shape[0]]).reshape((-1, 1)).to(self.device)
             decoder_inputs = torch.cat([bos, decoder_inputs.clone()], dim=1)
             decoder_inputs = self.embeddings(decoder_inputs)
 
@@ -60,23 +63,21 @@ class Seq2SeqModel(nn.Module):
             for batch_i in range(h.shape[1]):
                 h_i = h[:, batch_i: batch_i + 1, :]
                 c_i = c[:, batch_i: batch_i + 1, :]
+                res.append(self.forward_sent((h_i.contiguous(), c_i.contiguous()), max_len=max_len))
+            return res
 
     def forward_sent(self, states, max_len=200):
         # h, c = states
-        temp_input = torch.LongTensor([self.bos_idx]).unsqueeze(0).unsqueeze(0)
+        temp_input = torch.LongTensor([self.bos_idx]).unsqueeze(0).to(self.device)
         res = []
         while True:
-            temp_output, states = self.decoder(temp_input, states)
-            temp_output_idx = torch.argmax(self.softmax(temp_output.squeeze(0).squeeze(0)), dim=-1)
+            temp_output, states = self.decoder(self.embeddings(temp_input), states)
+            temp_output_idx = torch.argmax(self.softmax(temp_output.squeeze(0)), dim=-1)
             res.append(temp_output_idx)
             if temp_output_idx == self.eos_idx or len(res) == max_len:
                 break
+            temp_input = torch.LongTensor([temp_output_idx]).unsqueeze(0).to(self.device)
+
+        return torch.LongTensor(res).to(self.device)
 
 
-print(torch.cuda.is_available())
-a = torch.rand((2, 3, 4))
-print(a)
-
-for x in range(a.shape[1]):
-    print(x)
-    print(a[:, x: x+1, :])
