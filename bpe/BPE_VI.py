@@ -52,10 +52,16 @@ class BPE_VI(BPE):
     def tokenizers(self, sent: list, return_sent=False):
         tokenized_sent, outputs_id = [], []
         for token in sent:
-            tmp1, tmp2 = self.tokenizer(token, return_sent=return_sent)
-            tokenized_sent.append(tmp1)
+            if return_sent:
+                tmp1, tmp2 = self.tokenizer(token, return_sent=return_sent)
+                tokenized_sent.append(tmp1)
+            else:
+                tmp2 = self.tokenizer(token, return_sent=return_sent)
             outputs_id.append(tmp2)
-        return tokenized_sent, outputs_id
+        if return_sent:
+            return tokenized_sent, outputs_id
+        else:
+            return outputs_id
 
     def merge(self, sent_id):
         i = 1
