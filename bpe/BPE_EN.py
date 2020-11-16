@@ -64,3 +64,9 @@ class BPE_EN(BPE):
             i += 1
         return re.sub(r'Ġ', ' ', token)
 
+    def merges(self, sent_ids):
+        res = []
+        for sent_id in sent_ids:
+            res.append(self.merge(sent_id))
+        return res
+
