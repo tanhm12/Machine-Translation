@@ -69,5 +69,10 @@ class BPE_VI(BPE):
         while sent_id[i] != 2:
             token += self.decode[str(sent_id[i])] + ' '
             i += 1
-        return re.sub(r'@@ ', '', token)
+        return re.sub(r'@@ ', '', token).strip()
 
+    def merges(self, sent_ids):
+        res = []
+        for sent_id in sent_ids:
+            res.append(self.merge(sent_id))
+        return res

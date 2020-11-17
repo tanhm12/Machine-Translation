@@ -27,3 +27,6 @@ class BPE(ABC):
 
     def merge(self, sent_id):
         pass
+
+    def merges(self, sent_ids):
+        pass
