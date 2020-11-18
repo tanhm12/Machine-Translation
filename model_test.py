@@ -17,7 +17,9 @@ bpe = BPE_VI(padding=False)
 # x = [torch.randint(0, vocab_size, [np.random.randint(1, 30)]).to(device) for _ in range(test_len)]
 # print(x[0].dtype)
 x = bpe.tokenizers(s, return_sent=False)
-x = [torch.LongTensor(_).to(device) for _ in x]
-print(x)
+# x = [torch.LongTensor(_).to(device) for _ in x]
+# print(x)
 
-print(model(x, max_len=max_generated_len))
+# print(bpe.merges(model(x, max_len=max_generated_len)))
+
+print(bpe.merges(x))
