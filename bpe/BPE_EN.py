@@ -1,6 +1,6 @@
 from bpe.BPE import BPE
 import re
-from time import time
+from tqdm import tqdm
 
 
 class BPE_EN(BPE):
@@ -39,7 +39,7 @@ class BPE_EN(BPE):
 
     def tokenizers(self, sent: list):
         tokenized_sent = []
-        for token in sent:
+        for token in tqdm(sent):
             tmp1 = self.tokenizer(token)
             tokenized_sent.append(tmp1)
         return tokenized_sent

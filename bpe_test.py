@@ -12,8 +12,10 @@ print('-------------------------------------------------------------------------
 
 bpe = BPE_EN(padding=False)
 s = time()
-print(bpe.tokenizers(['Anyway, I think Onepiece is not a game']))
+print(bpe.tokenizer('🤗'))
+print(bpe.tokenizers(['But lets face it: At the core of this line of thinking isnt safety -- its sex']))
 t = time()
 print(t - s)
 a = '<s> Anyway , ĠI Ġthink ĠOne piece Ġis Ġnot Ġa Ġgame </s>'
 print(bpe.merge(a))
+
