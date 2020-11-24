@@ -1,2 +1,5 @@
 *.pyc
 .idea/
+*.kv
+*.npy
+*.zip
