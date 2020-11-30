@@ -10,16 +10,17 @@ class Seq2SeqModel(nn.Module):
         super(Seq2SeqModel, self).__init__()
         self.vocab_size = vocab_size
         self.embedding_dim = 100
-        self.lstm_dim = 128
+        self.lstm_dim = 256
         self.output_dim = self.vocab_size
         self.bos_idx = 2
         self.eos_idx = 3
         self.unk_idx = 1
 
         self.embeddings = nn.Embedding(self.vocab_size, self.embedding_dim, padding_idx=0)
+        self.direction = 2
         self.encoder = nn.LSTM(self.embedding_dim, self.lstm_dim, batch_first=True, bidirectional=True, num_layers=1)
         self.decoder = nn.LSTM(self.embedding_dim, self.lstm_dim, batch_first=True, bidirectional=True, num_layers=1)
-        self.linear = nn.Linear(self.lstm_dim, self.output_dim)
+        self.linear = nn.Linear(self.lstm_dim * self.direction, self.output_dim)
 
         self.softmax = nn.Softmax(dim=-1)
         self.loss_ignore_idx = -100
@@ -35,16 +36,6 @@ class Seq2SeqModel(nn.Module):
         x = pad_sequence(x, batch_first=True, padding_value=self.embeddings.padding_idx)
         x = self.embeddings(x)  # shape: batch * max(lens) * embedding_dim
 
-        if y is not None:
-            # lens_y = [len(sent) for sent in y]
-            decoder_inputs = pad_sequence(y, batch_first=True, padding_value=self.loss_ignore_idx)
-            bos = torch.LongTensor([[self.bos_idx] * decoder_inputs.shape[0]]).reshape((-1, 1)).to(self.device)
-            decoder_inputs = torch.cat([bos, decoder_inputs.clone()], dim=1)
-            decoder_inputs = self.embeddings(decoder_inputs)
-
-            y = [torch.cat([sent, torch.LongTensor([self.eos_idx])]) for sent in y]
-            y = pad_sequence(y, batch_first=True, padding_value=self.loss_ignore_idx)
-
         # packing
         x = pack_padded_sequence(x, lens, batch_first=True, enforce_sorted=False)
 
@@ -52,11 +43,25 @@ class Seq2SeqModel(nn.Module):
         out_packed, (h, c) = self.encoder(x)
         # out, out_lens = pad_packed_sequence(out_packed, batch_first=True)
         if y is not None:
+            decoder_inputs = [sent[:-1].clone() for sent in y]
+            decoder_outputs = [sent[1:].clone() for sent in y]
+
+            decoder_inputs_lens = [len(sent) for sent in decoder_inputs]
+            decoder_inputs = pad_sequence(decoder_inputs, batch_first=True, padding_value=self.embeddings.padding_idx)
+            decoder_inputs = self.embeddings(decoder_inputs)
+            decoder_inputs = pack_padded_sequence(decoder_inputs, decoder_inputs_lens, batch_first=True,
+                                                  enforce_sorted=False)
+
+            decoder_outputs = pad_sequence(decoder_outputs, batch_first=True, padding_value=self.loss_ignore_idx)
             out_packed, (h, c) = self.decoder(decoder_inputs, (h, c))
             # unpack
-            out, lens_unpack = pad_packed_sequence(out_packed, batch_first=False, padding_value=self.embeddings.padding_idx)
+            out, lens_unpack = pad_packed_sequence(out_packed, batch_first=True,
+                                                   padding_value=self.embeddings.padding_idx)
             # linear forward
-            out = self.softmax(self.liear(out))
+            print(out.shape)
+            out = self.softmax(self.linear(out)).
+            loss = self.loss(out, decoder_outputs)
+            return loss
         else:
             # h_n of shape (num_layers * num_directions, batch, hidden_size)
             res = []
