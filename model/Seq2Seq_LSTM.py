@@ -6,11 +6,16 @@ import numpy as np
 
 
 class Seq2SeqModel(nn.Module):
-    def __init__(self, vocab_size=10000, device='cuda'):
+    def __init__(self, vocab_size=10000, device='cuda', embedding_dim=128):
         super(Seq2SeqModel, self).__init__()
         self.vocab_size = vocab_size
+<<<<<<< HEAD
         self.embedding_dim = 100
         self.lstm_dim = 256
+=======
+        self.embedding_dim = embedding_dim
+        self.lstm_dim = 128
+>>>>>>> 17bf132b41676ebc7731cfe20fef66e132fcc580
         self.output_dim = self.vocab_size
         self.bos_idx = 2
         self.eos_idx = 3

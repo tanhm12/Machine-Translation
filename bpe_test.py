@@ -4,17 +4,18 @@ from time import time
 
 bpe = BPE_VI(padding=False)
 print(bpe.tokenizers(
-    ['Cuối cùng thì ta cũng không thể win the champition', 'Cuối cùng Thì Ta cũng không thể win the champition'],
-    return_sent=True))
-a = [0, 3223, 81, 54, 237, 32, 17, 4623, 16209, 2292, 58098, 30435, 2049, 2]
+    ['Cuối cùng thì ta cũng không thể win the champition', 'Cuối cùng Thì Ta cũng không thể win the champition']))
+a = '<s> Cuối cùng Thì Ta cũng không thể win the champ@@ iti@@ on </s>'
 print(bpe.merge(a))
 
 print('-----------------------------------------------------------------------------------------------------')
 
 bpe = BPE_EN(padding=False)
 s = time()
-print(bpe.tokenizers(['Anyway, I think Onepiece is not a game'], return_sent=True))
+print(bpe.tokenizer('🤗'))
+print(bpe.tokenizers(['But lets face it: At the core of this line of thinking isnt safety -- its sex']))
 t = time()
 print(t - s)
-a = [0, 46871, 6, 38, 206, 509, 10449, 16, 45, 10, 177, 2]
+a = '<s> Anyway , ĠI Ġthink ĠOne piece Ġis Ġnot Ġa Ġgame </s>'
 print(bpe.merge(a))
+
