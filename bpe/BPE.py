@@ -1,4 +1,8 @@
 from abc import ABC
+from typing import Union
+
+from tqdm import tqdm
+
 from bpe.utils import utils
 
 
@@ -19,14 +23,29 @@ class BPE(ABC):
         """
         pass
 
-    def tokenizer(self, sent: str, return_sent=False):
+    def _tokenize(self, sent: str):
         pass
 
-    def tokenizers(self, sent: str, return_sent=False):
+    def tokenize(self, sent: Union[list, str]):
+        if type(sent) is str:
+            return [self._tokenize(sent)]
+        else:
+            tokenized_sent = []
+            for token in tqdm(sent):
+                tmp = self._tokenize(token)
+                tokenized_sent.append(tmp)
+            return tokenized_sent
+
+    def _merge(self, token):
         pass
 
-    def merge(self, sent_id):
-        pass
+    def merge(self, tokens: Union[list, str]):
+        if type(tokens) is str:
+            return [self._merge(tokens)]
+        else:
+            res = []
+            for sent_id in tokens:
+                res.append(self._merge(sent_id))
+            return res
 
-    def merges(self, sent_ids):
-        pass
+

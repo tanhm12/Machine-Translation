@@ -1,3 +1,5 @@
+from typing import Union
+
 from bpe.BPE import BPE
 import re
 from tqdm import tqdm
@@ -29,7 +31,7 @@ class BPE_EN(BPE):
             outputs.append(' '.join(cur_output))
         return ' '.join(outputs)
 
-    def tokenizer(self, sent: str):
+    def _tokenize(self, sent: str):
         sent = re.sub(r'\s+', ' ', sent.strip())
         sent = re.sub(r' ', ' Ġ', sent)
         sent = sent.split()
@@ -37,21 +39,10 @@ class BPE_EN(BPE):
         tokenized_sent = self.segment_BPE(tokens)
         return tokenized_sent
 
-    def tokenizers(self, sent: list):
-        tokenized_sent = []
-        for token in tqdm(sent):
-            tmp1 = self.tokenizer(token)
-            tokenized_sent.append(tmp1)
-        return tokenized_sent
-
-    def merge(self, token):
+    def _merge(self, token):
         token = re.sub(r'(<s> |<\/s>)', '', token)
         token = re.sub(r' ', '', token)
         return re.sub(r'Ġ', ' ', token)
 
-    def merges(self, tokens):
-        res = []
-        for sent_id in tokens:
-            res.append(self.merge(sent_id))
-        return res
+
 

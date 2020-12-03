@@ -9,17 +9,13 @@ class Seq2SeqModel(nn.Module):
     def __init__(self, vocab_size=10000, device='cuda', embedding_dim=128):
         super(Seq2SeqModel, self).__init__()
         self.vocab_size = vocab_size
-<<<<<<< HEAD
         self.embedding_dim = 100
         self.lstm_dim = 256
-=======
         self.embedding_dim = embedding_dim
         self.lstm_dim = 128
->>>>>>> 17bf132b41676ebc7731cfe20fef66e132fcc580
         self.output_dim = self.vocab_size
         self.bos_idx = 2
         self.eos_idx = 3
-        self.unk_idx = 1
 
         self.embeddings = nn.Embedding(self.vocab_size, self.embedding_dim, padding_idx=0)
         self.direction = 2
@@ -31,9 +27,10 @@ class Seq2SeqModel(nn.Module):
         self.loss_ignore_idx = -100
         self.loss = nn.CrossEntropyLoss(ignore_index=self.loss_ignore_idx)
 
+        self.beam_size = 5
         self.device = device
 
-    def forward(self, x: List[torch.LongTensor], y:  List[torch.LongTensor] = None, max_len=20):
+    def forward(self, x: List[torch.LongTensor], y:  List[torch.LongTensor] = None, max_len=20, beam_size=None):
 
         lens = [len(sent) for sent in x]
 
@@ -64,30 +61,78 @@ class Seq2SeqModel(nn.Module):
                                                    padding_value=self.embeddings.padding_idx)
             # linear forward
             print(out.shape)
-            out = self.softmax(self.linear(out)).
+            out = self.linear(out)
             loss = self.loss(out, decoder_outputs)
             return loss
         else:
             # h_n of shape (num_layers * num_directions, batch, hidden_size)
+            if beam_size is None:
+                beam_size = beam_size
             res = []
             for batch_i in range(h.shape[1]):
                 h_i = h[:, batch_i: batch_i + 1, :]
                 c_i = c[:, batch_i: batch_i + 1, :]
-                res.append(self.forward_sent((h_i.contiguous(), c_i.contiguous()), max_len=max_len))
+                res.append(self.forward_sent((h_i.contiguous(), c_i.contiguous()), max_len=max_len, beam_size=beam_size))
             return res
 
-    def forward_sent(self, states, max_len=200):
+    # def forward_sent(self, states, max_len=200, beam_size=5):
+    #     # h, c = states
+    #     temp_input = torch.LongTensor([self.bos_idx]).unsqueeze(0).to(self.device)
+    #     res = []
+    #     while True:
+    #         temp_output, states = self.decoder(self.embeddings(temp_input), states)
+    #         temp_output_idx = torch.argmax(self.softmax(temp_output.squeeze(0)), dim=-1)
+    #         res.append(temp_output_idx)
+    #         if temp_output_idx == self.eos_idx or len(res) == max_len:
+    #             break
+    #         temp_input = torch.LongTensor([temp_output_idx]).unsqueeze(0).to(self.device)
+    #
+    #     return torch.LongTensor(res).to(self.device)
+
+    def normalize_prob(self, prob):
+        return np.log(prob)
+
+    def forward_one_token(self, token, states, beam_size=None):
+        if beam_size is None:
+            beam_size = self.beam_size
+        input_id = torch.LongTensor([[token]]).to(self.device)
+        output, states = self.decoder(self.embeddings(input_id), states)
+        topk_output = torch.topk(self.softmax(output.squeeze(0).squeeze(0)), k=beam_size, dim=-1)
+        topk_output_indices = topk_output.indices.tolist()  # for next token
+        topk_output_values = topk_output.values.tolist()  # for probability of next token
+
+        return topk_output_indices, topk_output_values, states
+
+    def forward_sent(self, states, max_len=200, beam_size=None):
         # h, c = states
-        temp_input = torch.LongTensor([self.bos_idx]).unsqueeze(0).to(self.device)
+        if beam_size is None:
+            beam_size = self.beam_size
+
+        # initialize
+        topk_output_indices, topk_output_values, states = self.forward_one_token(self.bos_idx, states, beam_size)
         res = []
+        for i in range(len(topk_output_indices)):
+            res.append([[topk_output_indices[i]], self.normalize_prob(topk_output_values[i]), states])
+
         while True:
-            temp_output, states = self.decoder(self.embeddings(temp_input), states)
-            temp_output_idx = torch.argmax(self.softmax(temp_output.squeeze(0)), dim=-1)
-            res.append(temp_output_idx)
-            if temp_output_idx == self.eos_idx or len(res) == max_len:
+            candidates = []
+            count_eos_token = 0
+            for input_ids, accumulate_prob, states in res:
+                input_id = input_ids[-1]
+                if input_id != self.eos_idx and len(input_ids) < max_len - 1:
+                    topk_output_indices, topk_output_values, new_states = self.forward_one_token(self.bos_idx, states,
+                                                                                                 beam_size)
+                    for i in range(len(topk_output_indices)):
+                        candidates.append([input_ids + [topk_output_indices[i]],
+                                           accumulate_prob + self.normalize_prob(topk_output_values[i]), new_states])
+                elif input_id == self.eos_idx:
+                    count_eos_token += 1
+                else:
+                    input_ids.append(self.eos_idx)
+            if count_eos_token == beam_size:
                 break
-            temp_input = torch.LongTensor([temp_output_idx]).unsqueeze(0).to(self.device)
+            candidates.sort(key=lambda x: x[1], reverse=True)
+            res = candidates[:min(beam_size, len(candidates))]
 
-        return torch.LongTensor(res).to(self.device)
-
+        return torch.LongTensor(res[0][0]).to(self.device)
 
