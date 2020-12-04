@@ -71,3 +71,4 @@ class WordIdConversion:
         for i in _id:
             res.append(self._id2sent(i))
         return res
+
