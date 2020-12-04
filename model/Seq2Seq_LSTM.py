@@ -103,7 +103,7 @@ class Seq2SeqModel(nn.Module):
 
         return topk_output_indices, topk_output_values, states
 
-    def forward_sent(self, states, max_len=200, beam_size=None):
+    def forward_sent(self, states, max_len=50, beam_size=None):
         # h, c = states
         if beam_size is None:
             beam_size = self.beam_size
@@ -124,7 +124,9 @@ class Seq2SeqModel(nn.Module):
                                                                                                  beam_size)
                     for i in range(len(topk_output_indices)):
                         candidates.append([input_ids + [topk_output_indices[i]],
-                                           accumulate_prob + self.normalize_prob(topk_output_values[i]), new_states])
+                                           (accumulate_prob * len(input_ids) +
+                                            self.normalize_prob(topk_output_values[i])) / (len(input_ids)+1),  # normalize with len
+                                           new_states])
                 elif input_id == self.eos_idx:
                     count_eos_token += 1
                 else:

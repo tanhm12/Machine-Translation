@@ -3,23 +3,23 @@ import torch
 import numpy as np
 
 
-def load_word2vec_model(tokenizer, lang):
-    return KeyedVectors.load('./embedding/' + tokenizer + "_" + lang + '/word2vec.kv')
+def load_word2vec_model(tokenizer_type, lang):
+    return KeyedVectors.load('./embedding/' + tokenizer_type + "_" + lang + '/word2vec.kv')
 
 
 class WordIdConversion:
-    def __init__(self, tokenizer: str, lang: str):
+    def __init__(self, tokenizer_type: str, lang: str):
         """
         Word - ID Conversion
-        :param tokenizer: name of tokenizer type. 'space' or 'bpe'
+        :param tokenizer_type: name of tokenizer_type type. 'space' or 'tokenizer'
         :param lang:    language 'vi' or 'en'
         """
-        assert tokenizer == 'space' or tokenizer == 'bpe'
+        assert tokenizer_type == 'space' or tokenizer_type == 'tokenizer'
         assert lang == 'vi' or lang == 'en'
 
-        self.tokenizer = tokenizer
+        self.tokenizer_type = tokenizer_type
         self.lang = lang
-        self.model = load_word2vec_model(tokenizer, lang)
+        self.model = load_word2vec_model(tokenizer_type, lang)
         self.bos = self.model.vocab['<s>'].index
         self.eos = self.model.vocab['</s>'].index
         self.unk = self.model.vocab['<unk>'].index
