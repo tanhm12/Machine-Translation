@@ -20,7 +20,6 @@ class SpaceTokenizer(ABC):
                 sent[i] = self.unk_token
         return sent
 
-
     def tokenize(self, sent: Union[list, str]):
         if type(sent) is str:
             return [self._tokenize(sent)]
@@ -45,7 +44,7 @@ class SpaceTokenizer(ABC):
 
 
 class Tokenizer(ABC):
-    def __init__(self, vocab: dict, tokenizer = None):
+    def __init__(self, vocab: dict, tokenizer=None):
         self.tokenizer = tokenizer
 
         self.vocab = vocab
@@ -55,25 +54,35 @@ class Tokenizer(ABC):
         self.index2word = {self.vocab[i]: i for i in self.vocab}
 
     def from_pretrained(self, lang='en', tokenizer_type='bpe'):
-
+        if tokenizer_type == 'bpe':
+            if lang == 'en':
+                self.tokenizer = BPE_EN(padding=False)
+            else:
+                self.tokenizer = BPE_VI(padding=False)
+        elif tokenizer_type == 'space':
+            self.tokenizer = SpaceTokenizer(self.vocab)
 
     def tokenize(self, sent: Union[list, str]):
-        sent_tokenized = self.tokenizer(sent)
-        if type(sent) is str:
-            return self._sent2id(sent_tokenized)
-        else:
-            return self.sent2id(sent_tokenized)
+        sent_tokenized = self.tokenizer.tokenize(sent)
+        return self.sent2id(sent_tokenized)
 
-    def sent2id(self, sent: list):
+    def merge(self, tokens: Union[list, np.ndarray]):
+        tokens = self.id2sent(tokens)
+        return self.tokenizer.merge(tokens)
+
+    def sent2id(self, sent: Union[list, str]):
         """
         convert a list (batch) of sentence to a list of LongTensor
         :param sent:
         :return:
         """
-        res = []
-        for s in sent:
-            res.append(self._sent2id(s))
-        return res
+        if type(sent) is str:
+            return [self._sent2id(sent)]
+        else:
+            res = []
+            for s in sent:
+                res.append(self._sent2id(s))
+            return res
 
     def _sent2id(self, sent: str):
         """
@@ -101,16 +110,19 @@ class Tokenizer(ABC):
             res.append(self.index2word[i])
         return ' '.join(res)
 
-    def id2sent(self, _id: list):
+    def id2sent(self, _id: Union[list, np.ndarray]):
         """
         convert a list of numpy array of ID to a list of sentences
         :param _id:
         :return:
         """
-        res = []
-        for i in _id:
-            res.append(self._id2sent(i))
-        return res
+        if type(_id) is np.ndarray:
+            return [self._id2sent(_id)]
+        else:
+            res = []
+            for i in _id:
+                res.append(self._id2sent(i))
+            return res
 
 
 

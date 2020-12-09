@@ -50,7 +50,6 @@ class BPE(ABC):
             return res
 
 
-
 class BPE_EN(BPE):
     def __init__(self, vocab_file='./tokenizer/resources/vocab', decode_file='./tokenizer/resources/inv_vocab', max_length=256, padding=True):
         super().__init__(vocab_file=vocab_file, decode_file=decode_file, max_length=max_length, padding=padding, lang='en')
