@@ -6,24 +6,23 @@ import numpy as np
 
 
 class Seq2SeqModel(nn.Module):
-    def __init__(self, vocab_size=10000, device='cuda', embedding=None, embedding_dim=128, padding_idx=0):
+    def __init__(self, src_embedding: nn.Embedding, dst_embedding: nn.Embedding, device='cuda'):
         super(Seq2SeqModel, self).__init__()
-        self.vocab_size = vocab_size
-        self.embedding_dim = 100
-        self.lstm_dim = 256
-        self.embedding_dim = embedding_dim
-        self.lstm_dim = 128
-        self.output_dim = self.vocab_size
+        self.src_embedding = src_embedding
+        self.dst_embedding = dst_embedding
+
+        self.src_embedding_dim = self.src_embedding.embedding_dim
+        self.dst_embedding_dim = self.dst_embedding.embedding_dim
+
+        self.output_dim = self.dst_embedding.num_embeddings
+
         self.bos_idx = 2
         self.eos_idx = 3
 
-        if embedding is not None:
-            self.embeddings = nn.Embedding.from_pretrained(embedding, padding_idx=padding_idx)
-        else:
-            self.embeddings = nn.Embedding(self.vocab_size, self.embedding_dim, padding_idx=padding_idx)
+        self.lstm_dim = 128
         self.direction = 2
-        self.encoder = nn.LSTM(self.embedding_dim, self.lstm_dim, batch_first=True, bidirectional=True, num_layers=1)
-        self.decoder = nn.LSTM(self.embedding_dim, self.lstm_dim, batch_first=True, bidirectional=True, num_layers=1)
+        self.encoder = nn.LSTM(self.src_embedding_dim, self.lstm_dim, batch_first=True, bidirectional=True, num_layers=1)
+        self.decoder = nn.LSTM(self.dst_embedding_dim, self.lstm_dim, batch_first=True, bidirectional=True, num_layers=1)
         self.linear = nn.Linear(self.lstm_dim * self.direction, self.output_dim)
 
         self.softmax = nn.Softmax(dim=-1)
@@ -38,23 +37,24 @@ class Seq2SeqModel(nn.Module):
         lens = [len(sent) for sent in x]
 
         # padding
-        x = pad_sequence(x, batch_first=True, padding_value=self.embeddings.padding_idx).to(self.device)
-        x = self.embeddings(x)  # shape: batch * max(lens) * embedding_dim
+        x = pad_sequence(x, batch_first=True, padding_value=self.src_embedding.padding_idx).to(self.device)
+        x = self.src_embedding(x)  # shape: batch * max(lens) * embedding_dim
 
         # packing
         x = pack_padded_sequence(x, lens, batch_first=True, enforce_sorted=False)
 
         # forward
         out_packed, (h, c) = self.encoder(x)
-        print(out_packed)
+        # print(out_packed)
         # out, out_lens = pad_packed_sequence(out_packed, batch_first=True)
         if y is not None:
             decoder_inputs = [sent[:-1].clone() for sent in y]
             decoder_outputs = [sent[1:].clone() for sent in y]
 
             decoder_inputs_lens = [len(sent) for sent in decoder_inputs]
-            decoder_inputs = pad_sequence(decoder_inputs, batch_first=True, padding_value=self.embeddings.padding_idx)
-            decoder_inputs = self.embeddings(decoder_inputs)
+            decoder_inputs = pad_sequence(decoder_inputs, batch_first=True,
+                                          padding_value=self.dst_embedding.padding_idx)
+            decoder_inputs = self.dst_embedding(decoder_inputs)
             decoder_inputs = pack_padded_sequence(decoder_inputs, decoder_inputs_lens, batch_first=True,
                                                   enforce_sorted=False)
 
@@ -62,7 +62,7 @@ class Seq2SeqModel(nn.Module):
             out_packed, (h, c) = self.decoder(decoder_inputs, (h, c))
             # unpack
             out, lens_unpack = pad_packed_sequence(out_packed, batch_first=True,
-                                                   padding_value=self.embeddings.padding_idx)
+                                                   padding_value=self.dst_embedding.padding_idx)
             # linear forward
             print(out.shape)
             out = self.linear(out)
@@ -101,7 +101,7 @@ class Seq2SeqModel(nn.Module):
         if beam_size is None:
             beam_size = self.beam_size
         input_id = torch.LongTensor([[token]]).to(self.device)
-        output, states = self.decoder(self.embeddings(input_id), states)
+        output, states = self.decoder(self.dst_embedding(input_id), states)
         topk_output = torch.topk(self.softmax(output.squeeze(0).squeeze(0)), k=beam_size, dim=-1)
         topk_output_indices = topk_output.indices.tolist()  # for next token
         topk_output_values = topk_output.values.tolist()  # for probability of next token
@@ -125,7 +125,7 @@ class Seq2SeqModel(nn.Module):
             for pos in range(len(res)):
                 input_ids, accumulate_prob, states = res[pos]
                 input_id = input_ids[-1]
-                print(len(input_ids))
+                # print(len(input_ids))
                 if input_id != self.eos_idx and len(input_ids) < max_len:
                     topk_output_indices, topk_output_values, new_states = self.forward_one_token(self.bos_idx, states,
                                                                                                  beam_size)
