@@ -1,5 +1,5 @@
 from tokenizer.BPE import BPE_VI, BPE_EN
-from tokenizer.tokenizer import Tokenizer
+from tokenizer._tokenizer import Tokenizer
 from time import time
 
 # bpe = BPE_VI(padding=False)

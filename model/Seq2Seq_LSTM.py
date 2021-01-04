@@ -1,4 +1,6 @@
 import torch
+
+from argparse import Namespace
 from torch import nn
 from torch.nn.utils.rnn import pad_sequence, pad_packed_sequence, pack_padded_sequence
 from typing import List
@@ -6,7 +8,7 @@ import numpy as np
 
 
 class Seq2SeqModel(nn.Module):
-    def __init__(self, src_embedding: nn.Embedding, dst_embedding: nn.Embedding, device='cuda'):
+    def __init__(self, src_embedding: nn.Embedding, dst_embedding: nn.Embedding, config: Namespace):
         super(Seq2SeqModel, self).__init__()
         self.src_embedding = src_embedding
         self.dst_embedding = dst_embedding
@@ -16,21 +18,26 @@ class Seq2SeqModel(nn.Module):
 
         self.output_dim = self.dst_embedding.num_embeddings
 
-        self.bos_idx = 2
-        self.eos_idx = 3
+        self.bos_idx = config.bos_idx
+        self.eos_idx = config.eos_idx
 
-        self.lstm_dim = 128
-        self.direction = 2
-        self.encoder = nn.LSTM(self.src_embedding_dim, self.lstm_dim, batch_first=True, bidirectional=True, num_layers=1)
-        self.decoder = nn.LSTM(self.dst_embedding_dim, self.lstm_dim, batch_first=True, bidirectional=True, num_layers=1)
+        self.lstm_dim = config.lstm_dim
+        self.direction = config.direction
+        self.bidirectional = True if self.direction == 2 else False
+        self.num_layers = config.num_layers
+        self.encoder = nn.LSTM(self.src_embedding_dim, self.lstm_dim, batch_first=True, bidirectional=self.bidirectional,
+                               num_layers=config.num_layers)
+        self.decoder = nn.LSTM(self.dst_embedding_dim, self.lstm_dim, batch_first=True, bidirectional=self.bidirectional,
+                               num_layers=config.num_layers)
+
         self.linear = nn.Linear(self.lstm_dim * self.direction, self.output_dim)
 
         self.softmax = nn.Softmax(dim=-1)
-        self.loss_ignore_idx = -100
+        self.loss_ignore_idx = config.loss_ignore_idx
         self.loss = nn.CrossEntropyLoss(ignore_index=self.loss_ignore_idx)
 
-        self.beam_size = 5
-        self.device = device
+        self.beam_size = config.beam_size
+        self.device = config.device
 
     def forward(self, x: List[torch.LongTensor], y:  List[torch.LongTensor] = None, max_len=20, beam_size=None):
 
