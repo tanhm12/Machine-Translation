@@ -1,7 +1,8 @@
 *.pyc
 .idea/
-#*.kv
+*.kv
 #*.npy
 *.zip
 MT-EV-VLSP2020/
+embedding/models/
 .ipynb_checkpoints/
