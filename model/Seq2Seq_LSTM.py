@@ -7,6 +7,85 @@ from typing import List
 import numpy as np
 
 
+class Encoder(nn.Module):
+    def __init__(self, embedding, lstm_dim, bidirectional, num_layers, device):
+        super(Encoder, self).__init__()
+        self.embedding = embedding
+
+        self.lstm_dim = lstm_dim
+        self.bidirectional = bidirectional
+        self.direction = 1 if not self.bidirectional else 2
+        self.num_layers = num_layers
+        self.network = nn.LSTM(self.src_embedding_dim, self.lstm_dim, batch_first=True, bidirectional=self.bidirectional,
+                               num_layers=self.num_layers)
+        self.device = device
+
+    def forward(self, x, hidden=None):
+        if hidden is None:
+            hidden = torch.zeros(1, 1, self.lstm_dim, device=self.device)
+
+        lens = [len(sent) for sent in x]
+
+        # padding
+        x = pad_sequence(x, batch_first=True, padding_value=self.src_embedding.padding_idx).to(self.device)
+        x = self.src_embedding(x)  # shape: batch * max(lens) * embedding_dim
+
+        # packing
+        x = pack_padded_sequence(x, lens, batch_first=True, enforce_sorted=False)
+
+        return self.network(x, hidden)
+
+
+# class Decoder(nn.Module):
+#     def __init__(self, embedding, lstm_dim, bidirectional, num_layers, device):
+#         super(Decoder, self).__init__()
+#         self.embedding = embedding
+#
+#         self.lstm_dim = lstm_dim
+#         self.bidirectional = bidirectional
+#         self.direction = 1 if not self.bidirectional else 2
+#         self.num_layers = num_layers
+#         self.network = nn.LSTM(self.src_embedding_dim, self.lstm_dim, batch_first=True,
+#                                bidirectional=self.bidirectional,
+#                                num_layers=self.num_layers)
+#         self.device = device
+#
+#     def forward(self, x, hidden=None, y=None):
+#         if y is not None:
+#             decoder_inputs = [sent[:-1].clone() for sent in y]
+#             decoder_outputs = [sent[1:].clone() for sent in y]
+#
+#             decoder_inputs_lens = [len(sent) for sent in decoder_inputs]
+#             decoder_inputs = pad_sequence(decoder_inputs, batch_first=True,
+#                                           padding_value=self.dst_embedding.padding_idx)
+#             decoder_inputs = self.dst_embedding(decoder_inputs)
+#             decoder_inputs = pack_padded_sequence(decoder_inputs, decoder_inputs_lens, batch_first=True,
+#                                                   enforce_sorted=False)
+#
+#             decoder_outputs = pad_sequence(decoder_outputs, batch_first=True, padding_value=self.loss_ignore_idx)
+#             out_packed, (h, c) = self.decoder(decoder_inputs, (h, c))
+#             # unpack
+#             out, lens_unpack = pad_packed_sequence(out_packed, batch_first=True,
+#                                                    padding_value=self.dst_embedding.padding_idx)
+#             # linear forward
+#             print(out.shape)
+#             out = self.linear(out)
+#             loss = self.loss(out, decoder_outputs)
+#             return loss
+#         else:
+#             # h_n of shape (num_layers * num_directions, batch, hidden_size)
+#             if beam_size is None:
+#                 beam_size = beam_size
+#             res = []
+#             for batch_i in range(h.shape[1]):
+#                 h_i = h[:, batch_i: batch_i + 1, :]
+#                 c_i = c[:, batch_i: batch_i + 1, :]
+#                 print(batch_i)
+#                 res.append(
+#                     self.forward_sent((h_i.contiguous(), c_i.contiguous()), max_len=max_len, beam_size=beam_size))
+#             return res
+
+
 class Seq2SeqModel(nn.Module):
     def __init__(self, src_embedding: nn.Embedding, dst_embedding: nn.Embedding, config: Namespace):
         super(Seq2SeqModel, self).__init__()

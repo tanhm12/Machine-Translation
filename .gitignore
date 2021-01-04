@@ -4,3 +4,4 @@
 *.npy
 *.zip
 MT-EV-VLSP2020/
+.ipynb_checkpoints/
