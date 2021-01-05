@@ -139,7 +139,7 @@ class Seq2SeqModel(nn.Module):
 
             decoder_inputs_lens = [len(sent) for sent in decoder_inputs]
             decoder_inputs = pad_sequence(decoder_inputs, batch_first=True,
-                                          padding_value=self.dst_embedding.padding_idx)
+                                          padding_value=self.dst_embedding.padding_idx).to(self.device)
             decoder_inputs = self.dst_embedding(decoder_inputs)
             decoder_inputs = pack_padded_sequence(decoder_inputs, decoder_inputs_lens, batch_first=True,
                                                   enforce_sorted=False)
