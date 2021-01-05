@@ -144,7 +144,7 @@ class Seq2SeqModel(nn.Module):
             decoder_inputs = pack_padded_sequence(decoder_inputs, decoder_inputs_lens, batch_first=True,
                                                   enforce_sorted=False)
 
-            decoder_outputs = pad_sequence(decoder_outputs, batch_first=True, padding_value=self.loss_ignore_idx)
+            decoder_outputs = pad_sequence(decoder_outputs, batch_first=True, padding_value=self.loss_ignore_idx).to(self.device)
             out_packed, (h, c) = self.decoder(decoder_inputs, (h, c))
             # unpack
             out, lens_unpack = pad_packed_sequence(out_packed, batch_first=True,
