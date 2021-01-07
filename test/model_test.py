@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from model.Seq2Seq_LSTM import Seq2SeqModel as Seq2Seq_LSTM
+from model.base_seq2seq import Seq2SeqModel as Seq2Seq_LSTM
 from tokenizer.BPE import BPE_VI, BPE_EN
 from tokenizer._tokenizer import Tokenizer
 from torch import nn

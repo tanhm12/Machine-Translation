@@ -1,11 +1,12 @@
 import numpy as np
 import torch
+import json
 import os
 import gensim
 
 from sklearn.model_selection import train_test_split
 
-from model.Seq2Seq_LSTM import Seq2SeqModel as Seq2Seq_LSTM
+from model.base_seq2seq import Seq2SeqModel as Seq2Seq_LSTM
 from tokenizer.BPE import BPE_VI, BPE_EN
 from tokenizer._tokenizer import Tokenizer
 from torch import nn
@@ -40,9 +41,21 @@ def get_text_data(test_ratio=0.1, valid_ratio=0.05, seed=222):
 
         data_en.extend(en_text)
         data_vi.extend(vi_text)
-
+    data_en = data_en[:10000]
+    data_vi = data_vi[:10000]
     train_en, test_en, train_vi, test_vi = train_test_split(data_en, data_vi, test_size=test_ratio, random_state=seed)
-    train_en, valid_en, train_vi, valid_vi = train_test_split(train_en, test_en, test_size=valid_ratio,
+    train_en, valid_en, train_vi, valid_vi = train_test_split(train_en, train_vi, test_size=valid_ratio,
                                                               random_state=seed)
 
     return train_en, train_vi, valid_en, valid_vi, test_en, test_vi
+
+
+# print(len(json.load(open('tokenizer/resources/vocab_en.json', encoding='utf8'))),
+#       len(json.load(open('tokenizer/resources/vocab_vi.json', encoding='utf8'))),
+#       len(get_embedding_models('embedding/models/bpe_en').vocab),
+#       len(get_embedding_models('embedding/models/bpe_vi').vocab),
+#       )
+
+
+# print(get_embedding_models('embedding/models/bpe_en').index2word)
+# print(get_embedding_models('embedding/models/bpe_vi').index2word)
