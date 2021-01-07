@@ -19,11 +19,11 @@ class SpaceTokenizer(ABC):
         for i, word in enumerate(sent):
             if word not in self.vocab:
                 sent[i] = self.unk_token
-        return sent
+        return ' '.join(sent)
 
     def tokenize(self, sent: Union[list, str]):
         if type(sent) is str:
-            return self._tokenize(sent)
+            return [self._tokenize(sent)]
         else:
             tokenized_sent = []
             for token in tqdm(sent):
@@ -36,7 +36,7 @@ class SpaceTokenizer(ABC):
 
     def merge(self, tokens: Union[list, str]):
         if type(tokens) is str:
-            return self._merge(tokens)
+            return [self._merge(tokens)]
         else:
             res = []
             for sent_id in tokens:
