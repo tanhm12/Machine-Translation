@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-
+import re
 from typing import Union, List
 from abc import ABC
 from tqdm import tqdm
@@ -19,6 +19,7 @@ class SpaceTokenizer(ABC):
         for i, word in enumerate(sent):
             if word not in self.vocab:
                 sent[i] = self.unk_token
+        sent = ['<s>'] + sent + ['</s>']
         return ' '.join(sent)
 
     def tokenize(self, sent: Union[list, str]):
@@ -31,8 +32,9 @@ class SpaceTokenizer(ABC):
                 tokenized_sent.append(tmp)
             return tokenized_sent
 
-    def _merge(self, token: List[str]):
-        return ' '.join(token)
+    def _merge(self, token: str):
+        token = re.sub(r'(<s> |<\/s>)', '', token)
+        return token
 
     def merge(self, tokens: Union[list, str]):
         if type(tokens) is str:
