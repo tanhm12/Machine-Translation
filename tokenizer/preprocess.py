@@ -10,8 +10,5 @@ class VnSegmentNLP:
 
     def word_segment(self, inp: str):
         word_segmented_text = self.annotator.tokenize(inp)
-        if len(word_segmented_text) > 1:
-            logging.warning("VnSegmentNLP: This sentence was split to more one sentence:" + inp)
-        word_segmented_text = word_segmented_text[0]
-
-        return ' '.join(word_segmented_text)
+        sentences = [' '.join(word) for word in word_segmented_text]
+        return ' '.join(sentences)
