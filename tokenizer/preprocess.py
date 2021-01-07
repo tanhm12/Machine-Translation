@@ -1,7 +1,7 @@
 from vncorenlp import VnCoreNLP
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.WARNING)
 
 
 class VnSegmentNLP:
