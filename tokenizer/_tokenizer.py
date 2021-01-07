@@ -6,6 +6,7 @@ from abc import ABC
 from tqdm import tqdm
 from tokenizer.utils import *
 from tokenizer.BPE import BPE_EN, BPE_VI
+from tokenizer.preprocess import VnSegmentNLP
 
 
 class SpaceTokenizer(ABC):
@@ -44,7 +45,7 @@ class SpaceTokenizer(ABC):
 
 
 class Tokenizer(ABC):
-    def __init__(self, vocab: dict, tokenizer=None):
+    def __init__(self, vocab: dict, tokenizer=None, preprocess=False):
         self.tokenizer = tokenizer
 
         self.vocab = vocab
@@ -52,6 +53,10 @@ class Tokenizer(ABC):
         self.eos = self.vocab['</s>']
         self.unk = self.vocab['<unk>']
         self.index2word = {self.vocab[i]: i for i in self.vocab}
+        if preprocess:
+            self.vnSegment = VnSegmentNLP()
+        else:
+            self.vnSegment = None
 
     def from_pretrained(self, lang='en', tokenizer_type='bpe'):
         if tokenizer_type == 'bpe':
@@ -63,6 +68,12 @@ class Tokenizer(ABC):
             self.tokenizer = SpaceTokenizer(self.vocab)
 
     def tokenize(self, sent: Union[list, str]):
+        if self.vnSegment is not None:
+            if type(sent) is str:
+                sent = self.vnSegment.word_segment(sent)
+            else:
+                n_sent = [self.vnSegment.word_segment(s) for s in sent]
+                sent = n_sent
         sent_tokenized = self.tokenizer.tokenize(sent)
         return self.sent2id(sent_tokenized)
 
