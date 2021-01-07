@@ -16,6 +16,7 @@ class Config:
     lstm_dim=128
     direction=2
     num_layers=2
+    max_attention_len=64
     loss_ignore_idx=-100
     batch_size=8
     beam_size=5
