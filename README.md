@@ -22,7 +22,7 @@ Extract MT-EV-VLSP2020.zip to ./
 
 ## Seq2Seq model
 
-Check models/
+Check model/
 
 ## Training, evaluating and inferencing
 
