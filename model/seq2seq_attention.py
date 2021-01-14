@@ -9,7 +9,6 @@ import numpy as np
 import torch.nn.functional as F
 
 
-
 class Attention(nn.Module):
     def __init__(self, enc_hid_dim, dec_hid_dim, encoder_direction=2, dec_num_layers=2):
         super().__init__()
@@ -36,6 +35,7 @@ class Attention(nn.Module):
         attention = attention.masked_fill(mask == 0, -1e10)
 
         return F.softmax(attention, dim=1)
+
 
 class Seq2SeqAttentionModel(nn.Module):
     def __init__(self, src_embedding: nn.Embedding, dst_embedding: nn.Embedding, config):
@@ -106,14 +106,14 @@ class Seq2SeqAttentionModel(nn.Module):
 
         return self.softmax(decoder_outputs), loss
 
-    def predict(self, x, max_len=20):
+    def predict(self, x, max_len=20, beam_size=5):
         outputs = []
         for x_i in x:
-            outputs.append(self.predict_one_sentence(x_i, max_len))
+            outputs.append(self.predict_one_sentence(x_i, max_len, beam_size))
 
         return outputs
 
-    def predict_one_sentence(self, x, max_len=20):
+    def predict_one_sentence_(self, x, max_len=20):
         encoder_outputs, hidden, mask = self.encoder_forward([x])
         decoder_inputs = [torch.LongTensor([self.bos_idx])]
         # decoder_inputs shape (1, 1)
@@ -130,6 +130,48 @@ class Seq2SeqAttentionModel(nn.Module):
             decoder_inputs = [torch.LongTensor([decoder_outputs])]
 
         return outputs
+
+    def normalize_prob(self, prob):
+        return np.log(1 + prob)
+
+    def predict_one_token(self, decoder_inputs, hidden, encoder_outputs, mask, beam_size=5):
+        decoder_outputs, hidden = self.decoder_forward(decoder_inputs, hidden, encoder_outputs, mask)
+        decoder_outputs = torch.topk(self.softmax(decoder_outputs).reshape((-1,)), k=beam_size)
+        topk_output_indices = decoder_outputs.indices.tolist()
+        topk_output_values = decoder_outputs.values.tolist()
+
+        return hidden, topk_output_indices, topk_output_values
+
+    def predict_one_sentence(self, x, max_len=50, beam_size=5):
+        encoder_outputs, hidden, mask = self.encoder_forward([x])
+        decoder_inputs = [torch.LongTensor([self.bos_idx])]
+        # decoder_inputs shape (1, 1)
+
+        hidden, topk_output_indices, topk_output_values = self.predict_one_token(decoder_inputs, hidden,
+                                                                                 encoder_outputs, mask, beam_size)
+        res = []
+        for i in range(len(topk_output_indices)):
+            res.append([[topk_output_indices[i]], self.normalize_prob(topk_output_values[i]), hidden])
+
+        for i in range(1, max_len):
+            candidates = res[:]
+            for pos in range(len(res)):
+                input_ids, accumulate_prob, hidden = res[pos]
+                input_id = input_ids[-1]
+                decoder_inputs = [torch.LongTensor([input_id])]
+                if input_id != self.eos_idx:
+                    new_hidden, topk_output_indices, topk_output_values = self.predict_one_token(decoder_inputs, hidden,
+                                                                                                 encoder_outputs, mask,
+                                                                                                 beam_size)
+                    for i in range(len(topk_output_indices)):
+                        candidates.append([input_ids[:] + [topk_output_indices[i]],
+                                           (accumulate_prob + self.normalize_prob(topk_output_values[i])),  # normalize with len
+                                           new_hidden])
+
+            candidates.sort(key=lambda x: x[1], reverse=True)
+            res = candidates[:beam_size]
+
+        return res[0][0]
 
     def create_mask(self, encoder_inputs):
         mask = (encoder_inputs != self.src_embedding.padding_idx)
@@ -197,6 +239,8 @@ class Seq2SeqAttentionModel(nn.Module):
             # weighted = [batch size, 1, enc hid dim * direction]
             all_attention.append(weighted)
 
+        if attention_hidden_inputs.requires_grad:
+            attention_hidden_inputs.retain_grad()
         all_attention = torch.cat(all_attention, dim=1)
         # all_attention = [batch size, decoder_inputs seq len, enc hid dim * direction]
 
@@ -204,6 +248,61 @@ class Seq2SeqAttentionModel(nn.Module):
         out = self.linear(torch.cat([out, all_attention], dim=-1))
         return out, hidden
 
+    def decoder_forward_get_attention(self, decoder_inputs, hidden, encoder_outputs, mask):
+        # decoder_inputs: list of tensor
+        # hidden = [num layers, batch size, dec hid dim]
+        # encoder_outputs = [batch size, encoder_inputs len, enc hid dim * direction]
+        # mask = [batch size, encoder_inputs len]
+
+        # decoder_inputs = [i[:self.max_decoder_inputs_length] for i in decoder_inputs]
+        if self.device == 'cuda':
+            decoder_inputs = [i.cuda() for i in decoder_inputs]
+
+        decoder_inputs_lens = [len(sent) for sent in decoder_inputs]
+        decoder_inputs = pad_sequence(decoder_inputs, batch_first=True,
+                                      padding_value=self.dst_embedding.padding_idx)
+        # print(decoder_inputs)
+        decoder_inputs = self.dst_embedding(decoder_inputs)
+        decoder_inputs = pack_padded_sequence(decoder_inputs, decoder_inputs_lens, batch_first=True,
+                                              enforce_sorted=False)
+
+        out_packed, hidden = self.decoder(decoder_inputs, hidden)
+
+        out, lens_unpack = pad_packed_sequence(out_packed, batch_first=True,
+                                               padding_value=self.dst_embedding.padding_idx)
+        # out = [batch size, decoder_inputs seq len, dec hid dim]
+
+        all_attention = []
+        attention_hidden_inputs = out.permute(1, 0, 2)
+        all_attention_softmax = []
+        for i in range(len(attention_hidden_inputs)):
+            attention_hidden_input = attention_hidden_inputs[i]
+            attention_outputs = self.attention_layers(attention_hidden_input, encoder_outputs, mask).unsqueeze(1)
+            all_attention_softmax.append(attention_outputs)
+            # attention_outputs = [batch size, 1, encoder_inputs len]
+
+            weighted = torch.bmm(attention_outputs, encoder_outputs)
+            # weighted = [batch size, 1, enc hid dim * direction]
+            all_attention.append(weighted)
+
+        all_attention = torch.cat(all_attention, dim=1)
+        # all_attention = [batch size, decoder_inputs seq len, enc hid dim * direction]
+
+        # linear forward
+        out = self.linear(torch.cat([out, all_attention], dim=-1))
+        return out, hidden, all_attention_softmax
+
+    def forward_and_get_attention(self, x: List[torch.LongTensor], y: List[torch.LongTensor]):
+        encoder_outputs, hidden, mask = self.encoder_forward(x)
+
+        for i in range(len(y)):
+            if len(y[i]) > self.max_decoder_inputs_length:
+                y[i] = torch.cat([y[i][:self.max_decoder_inputs_length], torch.LongTensor([self.eos_idx])])
+        decoder_inputs = [sent[:-1] for sent in y]
+        decoder_outputs, hidden, attention_softmax = self.decoder_forward_get_attention(decoder_inputs, hidden,
+                                                                                        encoder_outputs, mask)
+
+        return torch.topk(self.softmax(decoder_outputs), dim=-1, k=1), attention_softmax
 
 # class EncoderAttention(nn.Module):
 #     def __init__(self, embedding: nn.Embedding, lstm_dim, bidirectional=True, num_layers=2, device='cuda'):

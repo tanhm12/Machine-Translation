@@ -1,6 +1,20 @@
-from tokenizer.preprocess import VnSegmentNLP
+import torch
 
-san = VnSegmentNLP()
+a = torch.rand(3, 4, requires_grad=True)
+b = torch.rand(3, 4, requires_grad=True)
 
-print(san.word_segment("Ông Nguyễn Khắc Chúc  đang làm việc tại Đại học Quốc gia Hà Nội. Bà Lan, vợ ông Chúc, cũng làm việc tại đây."))
-print(san.word_segment("Ông Nguyễn Khắc Chúc  đang làm việc tại Đại học Quốc gia Hà Nội."))
+c = torch.nn.Linear(4, 10)(a * b)
+print(c)
+
+res = []
+for i in range(len(c)):
+    res.append((c[i] * 2).unsqueeze(0))
+
+res = torch.cat(res, dim=0)
+
+c.retain_grad()
+res.backward()
+
+
+print()
+

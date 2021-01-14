@@ -22,4 +22,8 @@ Extract MT-EV-VLSP2020.zip to ./
 
 ## Seq2Seq model
 
-To be continued
+Check models/
+
+## Training, evaluating and inferencing
+
+Check 2 main file or these [Colab notebooks](https://drive.google.com/drive/folders/1VAZFWtKEeh0NnYsyXntOWFZHI6TqVYfi?usp=sharing)

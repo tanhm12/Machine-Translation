@@ -7,6 +7,7 @@ from typing import List
 import numpy as np
 
 
+
 class Seq2SeqModel(nn.Module):
     def __init__(self, src_embedding: nn.Embedding, dst_embedding: nn.Embedding, config):
         super(Seq2SeqModel, self).__init__()
@@ -58,14 +59,14 @@ class Seq2SeqModel(nn.Module):
 
         return self.softmax(decoder_outputs), loss
 
-    def predict(self, x, max_len=20):
+    def predict(self, x, max_len=50, beam_size=5):
         outputs = []
         for x_i in x:
-            outputs.append(self.predict_one_sentence(x_i, max_len))
+            outputs.append(self.predict_one_sentence(x_i, max_len, beam_size))
 
         return outputs
 
-    def predict_one_sentence(self, x, max_len=20):
+    def predict_one_sentence_(self, x, max_len=50, beam_size=5):
         encoder_outputs, hidden = self.encoder_forward([x])
         decoder_inputs = [torch.LongTensor([self.bos_idx])]
         # decoder_inputs shape (1, 1)
@@ -82,6 +83,46 @@ class Seq2SeqModel(nn.Module):
             decoder_inputs = [torch.LongTensor([decoder_outputs])]
 
         return outputs
+
+    def normalize_prob(self, prob):
+        return np.log(1 + prob)
+
+    def predict_one_token(self, decoder_inputs, hidden, beam_size=5):
+        decoder_outputs, hidden = self.decoder_forward(decoder_inputs, hidden)
+        decoder_outputs = torch.topk(self.softmax(decoder_outputs).reshape((-1,)), k=beam_size)
+        topk_output_indices = decoder_outputs.indices.tolist()
+        topk_output_values = decoder_outputs.values.tolist()
+
+        return hidden, topk_output_indices, topk_output_values
+
+    def predict_one_sentence(self, x, max_len=50, beam_size=5):
+        encoder_outputs, hidden = self.encoder_forward([x])
+        decoder_inputs = [torch.LongTensor([self.bos_idx])]
+        # decoder_inputs shape (1, 1)
+
+        hidden, topk_output_indices, topk_output_values = self.predict_one_token(decoder_inputs, hidden, beam_size)
+        res = []
+        for i in range(len(topk_output_indices)):
+            res.append([[topk_output_indices[i]], self.normalize_prob(topk_output_values[i]), hidden])
+
+        for i in range(1, max_len):
+            candidates = res[:]
+            for pos in range(len(res)):
+                input_ids, accumulate_prob, hidden = res[pos]
+                input_id = input_ids[-1]
+                decoder_inputs = [torch.LongTensor([input_id])]
+                if input_id != self.eos_idx:
+                    new_hidden, topk_output_indices, topk_output_values = self.predict_one_token(decoder_inputs, hidden,
+                                                                                                 beam_size)
+                    for i in range(len(topk_output_indices)):
+                        candidates.append([input_ids[:] + [topk_output_indices[i]],
+                                           (accumulate_prob + self.normalize_prob(topk_output_values[i])),  # normalize with len
+                                           new_hidden])
+
+            candidates.sort(key=lambda x: x[1], reverse=True)
+            res = candidates[:beam_size]
+
+        return res[0][0]
 
     def encoder_forward(self, x):
         if self.device == 'cuda':
