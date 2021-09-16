@@ -14,7 +14,7 @@ BPE En  | CNN-DailyMail using space bpe for preprocessing | StandfordCoreNLP for
 Notebook: embedding/word2vec_pretrain_machine_trans_en_vi.ipynb
 
 Link models: [Google Drive](https://drive.google.com/drive/folders/1VAZFWtKEeh0NnYsyXntOWFZHI6TqVYfi?usp=sharing)
-models word2vec will be saved in /embedding/model_name
+models word2vec should be saved in /embedding/model_name
 
 ## Data
 
